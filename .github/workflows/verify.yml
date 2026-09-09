@@ -1,0 +1,39 @@
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: workspace_test
+          POSTGRES_USER: workspace
+          POSTGRES_PASSWORD: workspace_test_only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U workspace -d workspace_test"
+          --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      ConnectionStrings__Workspace: Host=localhost;Port=5432;Database=workspace_test;Username=workspace;Password=workspace_test_only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: bash scripts/bootstrap.sh
+      - run: dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+      - run: bash scripts/verify.sh
+      - name: Verify empty-database migration
+        run: |
+          PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d postgres -c 'DROP DATABASE workspace_test WITH (FORCE);'
+          PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d postgres -c 'CREATE DATABASE workspace_test;'
+          dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web

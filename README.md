@@ -1,8 +1,50 @@
-# 協作工作區：開發規格包
+# 協作工作區
 
 版本：1.0　｜　基準日期：2026-09-09　｜　文件語言：繁體中文
 
-本套件是可放入 GitHub repository 的需求與開發交接文件。目前只有文件，尚未建立應用程式、資料庫、CI 或部署環境；「協作工作區」是中性的暫定名稱。
+本 repository 已開始進行 M0，包含 .NET 10 solution、Vue 3 預覽入口、PostgreSQL 初始 migration、跨平台腳本及 CI 基線。「協作工作區」仍是中性的暫定名稱；核心業務流程將在 M1 實作。
+
+## 開發需求
+
+| 工具 | 版本／用途 |
+| --- | --- |
+| .NET SDK | 10.x；`global.json` 的基準為 10.0.100 |
+| Node.js | 20.x，搭配 npm |
+| Docker | Docker Compose，用於本機 PostgreSQL 17 |
+| PowerShell | Windows 使用 `.ps1` 腳本時需要 |
+
+所有設定均為本機開發用途，不得將正式資料庫連線字串或真實帳密放入 repository。
+
+## 啟動與驗證
+
+Linux／macOS：
+
+```bash
+bash scripts/bootstrap.sh
+bash scripts/dev.sh
+bash scripts/verify.sh
+bash scripts/package.sh
+```
+
+Windows PowerShell：
+
+```powershell
+pwsh scripts/bootstrap.ps1
+pwsh scripts/dev.ps1
+pwsh scripts/verify.ps1
+pwsh scripts/package.ps1
+```
+
+`bootstrap` 檢查 SDK 與 Node 主要版本並安裝依賴。`dev` 只會依 `compose.yaml` 啟動開發用 PostgreSQL，套用 migration，然後在 `http://localhost:5173` 啟動 Vue，API 位於 `http://localhost:5080`。`verify` 執行 .NET restore／build／test，以及前端型別、測試與建置。`package` 將 Web 發布到 `artifacts/web`，其中包含編譯後的 Vue 靜態檔案。
+
+若要單獨重建開發資料庫，可先刪除開發 volume，再重新啟動：
+
+```bash
+docker compose down -v
+docker compose up -d --wait
+dotnet tool restore
+dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+```
 
 ## 核心目標
 

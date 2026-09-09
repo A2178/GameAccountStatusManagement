@@ -43,6 +43,13 @@ ScaffoldingReadMe.txt
 ~$*
 *~
 CodeCoverage/
+node_modules/
+dist/
+.vite/
+playwright-report/
+test-results/
+appsettings.Development.json
+.dev-data/
 
 # MSBuild Binary and Structured Log
 *.binlog
