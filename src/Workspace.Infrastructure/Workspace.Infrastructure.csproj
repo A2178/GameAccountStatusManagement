@@ -3,5 +3,7 @@
     <ProjectReference Include="../Workspace.Application/Workspace.Application.csproj" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <!-- Keep the design-time dependency graph off the vulnerable 9.0.0 transitive version. -->
+    <PackageReference Include="System.Security.Cryptography.Xml" PrivateAssets="all" />
   </ItemGroup>
 </Project>
