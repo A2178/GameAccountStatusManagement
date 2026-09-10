@@ -10,7 +10,7 @@ partial class WorkspaceDbContextModelSnapshot : ModelSnapshot
 {
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
+        modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
         modelBuilder.Entity("Workspace.Infrastructure.Persistence.PreviewAccount", entity =>
         {
             entity.Property<Guid>("Id").HasColumnType("uuid");
