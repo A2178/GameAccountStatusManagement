@@ -1,0 +1,61 @@
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: workspace_test
+          POSTGRES_USER: workspace
+          POSTGRES_PASSWORD: workspace_test_only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U workspace -d workspace_test"
+          --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      ConnectionStrings__Workspace: Host=localhost;Port=5432;Database=workspace_test;Username=workspace;Password=workspace_test_only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.100
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: bash scripts/bootstrap.sh
+      - run: dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+      - run: bash scripts/verify.sh
+      - name: Verify upgrade from M0 without deleting preview data
+        run: |
+          PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d postgres -c 'DROP DATABASE workspace_test WITH (FORCE);'
+          PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d postgres -c 'CREATE DATABASE workspace_test;'
+          dotnet ef database update 202609090001_InitialCreate --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+          PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d workspace_test -c "INSERT INTO preview_accounts (\"Id\", \"DisplayName\") VALUES ('10000000-0000-0000-0000-000000000099', '升級保留測試帳號');"
+          dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+          test "$(PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d workspace_test -Atc "SELECT count(*) FROM preview_accounts WHERE \"Id\" = '10000000-0000-0000-0000-000000000099';")" = "1"
+      - name: Run multi-session browser acceptance
+        run: |
+          PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d postgres -c 'DROP DATABASE workspace_test WITH (FORCE);'
+          PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d postgres -c 'CREATE DATABASE workspace_test;'
+          dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+          npm exec --prefix src/Workspace.Client -- playwright install --with-deps chromium
+          npm run e2e --prefix src/Workspace.Client
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m1-browser-evidence
+          path: |
+            artifacts/playwright-report
+            src/Workspace.Client/test-results
+      - name: Verify empty-database migration
+        run: |
+          PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d postgres -c 'DROP DATABASE workspace_test WITH (FORCE);'
+          PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d postgres -c 'CREATE DATABASE workspace_test;'
+          dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web

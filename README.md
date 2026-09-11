@@ -1,8 +1,71 @@
-# 協作工作區：開發規格包
+# 協作工作區
 
 版本：1.0　｜　基準日期：2026-09-09　｜　文件語言：繁體中文
 
-本套件是可放入 GitHub repository 的需求與開發交接文件。目前只有文件，尚未建立應用程式、資料庫、CI 或部署環境；「協作工作區」是中性的暫定名稱。
+本 repository 已完成 M0 基線，並加入 M1 的暱稱工作階段、帳號／卡片狀態、區域預約與入場協調、PostgreSQL 並行保護、AuditEvent 及 SignalR 同步。「協作工作區」仍是中性的暫定名稱。
+
+## 開發需求
+
+| 工具 | 版本／用途 |
+| --- | --- |
+| .NET SDK | 10.x；`global.json` 的基準為 10.0.100 |
+| Node.js | 20.x，搭配 npm |
+| Docker | Docker Compose，用於本機 PostgreSQL 17 |
+| PowerShell | Windows 使用 `.ps1` 腳本時需要 |
+
+所有設定均為本機開發用途，不得將正式資料庫連線字串或真實帳密放入 repository。
+
+## 啟動與驗證
+
+Linux／macOS：
+
+```bash
+bash scripts/bootstrap.sh
+bash scripts/dev.sh
+bash scripts/verify.sh
+bash scripts/package.sh
+```
+
+Windows PowerShell：
+
+```powershell
+pwsh scripts/bootstrap.ps1
+pwsh scripts/dev.ps1
+pwsh scripts/verify.ps1
+pwsh scripts/package.ps1
+```
+
+`bootstrap` 檢查 SDK 與 Node 主要版本並安裝依賴。`dev` 只會依 `compose.yaml` 啟動開發用 PostgreSQL，套用 migration，然後在 `http://localhost:5173` 啟動 Vue，API 位於 `http://localhost:5080`。`verify` 執行 .NET restore／build／test，以及前端型別、測試與建置。`package` 將 Web 發布到 `artifacts/web`，其中包含編譯後的 Vue 靜態檔案。
+
+## M1 雙使用者預覽驗收
+
+1. 執行 `bash scripts/dev.sh`（Windows 使用 `pwsh scripts/dev.ps1`），開啟 `http://localhost:5173`。
+2. 在一般視窗選「小明」，在無痕視窗選「小林」；即使輸入相同暱稱，兩個瀏覽器工作階段也會取得不同參與者 ID。
+3. 小明為「青鳥一號」預約「迷霧森林」，確認小林的畫面透過 SignalR 更新。
+4. 小林嘗試讓同帳號「青鳥二號」預約「赤色峽谷」，應看到繁體中文拒絕原因，且重新整理後不留下赤色峽谷預約。
+5. 小明回報入場；只回村一張仍不能解除同帳號其他有效預約。將同帳號全部明確回村／取消後，才可預約另一區域。
+6. 關閉分頁、斷線、將卡片改成「未使用」都不會解除預約或占用。斷線時頁面會提示，重連後會重新取得最新快照。
+7. 另開無痕視窗選「Admin」：Admin 的操作同樣受區域限制並寫入日誌；普通視窗只看到必要業務狀態，不會看到 Admin 的操作者名稱。只有 Admin 畫面會顯示操作紀錄。
+
+拖曳尚未預約的卡片到區域卡可建立預約；每張卡片也提供完整的按鈕替代操作。所有成功狀態均以前端收到後端保存結果為準，衝突時會刷新資料庫快照。
+
+瀏覽器自動驗收可執行：
+
+```bash
+npx --prefix src/Workspace.Client playwright install chromium
+npm run e2e --prefix src/Workspace.Client
+```
+
+M1 尚未包含 M2 的自由欄位／帳密表、M3 的完整 presence 游標、M4 的資格／金幣及後續桌面面板；這些入口目前不適用，也不列為本階段已驗證功能。
+
+若要單獨重建開發資料庫，可先刪除開發 volume，再重新啟動：
+
+```bash
+docker compose down -v
+docker compose up -d --wait
+dotnet tool restore
+dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+```
 
 ## 核心目標
 
