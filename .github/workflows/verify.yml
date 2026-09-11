@@ -30,7 +30,9 @@ jobs:
         with:
           node-version: 20
       - run: bash scripts/bootstrap.sh
-      - run: dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+      - name: Build solution before running EF tooling
+        run: dotnet build Workspace.slnx --no-restore --verbosity normal
+      - run: dotnet ef database update --no-build --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
       - run: bash scripts/verify.sh
       - name: Verify upgrade from M0 without deleting preview data
         run: |
