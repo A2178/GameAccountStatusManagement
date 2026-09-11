@@ -18,6 +18,16 @@ public sealed class SessionEndpointTests : IClassFixture<WebApplicationFactory<P
         Assert.NotEqual(firstId, secondId);
     }
 
+    [Fact]
+    public async Task Nickname_session_requires_antiforgery_token()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/session", new { nickname = "小明" });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private static async Task<Guid> SignInAsync(HttpClient client, string nickname)
     {
         var csrf = await client.GetFromJsonAsync<JsonElement>("/api/session/csrf");

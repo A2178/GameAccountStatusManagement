@@ -36,10 +36,21 @@ app.Use(async (context, next) =>
     catch (VersionConflictException exception) { await ErrorAsync(context, 409, exception.Message); }
     catch (DomainRuleException exception) { await ErrorAsync(context, 409, exception.Message); }
     catch (UnauthorizedAccessException exception) { await ErrorAsync(context, 403, exception.Message); }
+    catch (AntiforgeryValidationException) { await ErrorAsync(context, 400, "安全驗證已失效，請重新整理後再試一次。"); }
 });
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api") &&
+        (HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
+         HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method)))
+    {
+        await context.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(context);
+    }
+    await next(context);
+});
 
 app.MapGet("/api/session/csrf", (IAntiforgery antiforgery, HttpContext context) =>
 {
@@ -56,9 +67,9 @@ app.MapPost("/api/session", async (NicknameRequest request, WorkspaceDbContext d
     var claims = new[] { new Claim(ClaimTypes.NameIdentifier, participant.Id.ToString()), new Claim(ClaimTypes.Name, participant.Nickname), new Claim("can_read_audit", participant.IsAdmin ? "true" : "false") };
     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
     return Results.Ok(new CurrentSessionDto(participant.Id, participant.Nickname, participant.IsAdmin));
-}).RequireAntiforgery();
+});
 
-var api = app.MapGroup("/api").RequireAuthorization().RequireAntiforgery();
+var api = app.MapGroup("/api").RequireAuthorization();
 api.MapGet("/snapshot", (ClaimsPrincipal user, IWorkspaceCoordinator service, CancellationToken ct) => service.GetSnapshotAsync(ToSession(user), ct));
 api.MapPost("/cards/{cardId:guid}/reserve", (Guid cardId, CoordinationCommand command, ClaimsPrincipal user, IWorkspaceCoordinator service, CancellationToken ct) => service.ReserveAsync(ToSession(user), command with { CardId = cardId }, ct));
 api.MapPost("/cards/{cardId:guid}/enter", (Guid cardId, CoordinationCommand command, ClaimsPrincipal user, IWorkspaceCoordinator service, CancellationToken ct) => service.EnterAsync(ToSession(user), command with { CardId = cardId }, ct));
