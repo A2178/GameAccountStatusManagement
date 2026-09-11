@@ -1,7 +1,5 @@
 namespace Workspace.Domain;
 
-public static class AssemblyMarker;
-
 public enum CardUsageStatus
 {
     Available,

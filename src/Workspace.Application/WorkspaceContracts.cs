@@ -2,8 +2,6 @@ using Workspace.Domain;
 
 namespace Workspace.Application;
 
-public static class AssemblyMarker;
-
 public sealed record CurrentSessionDto(Guid ParticipantId, string Nickname, bool CanReadAudit);
 public sealed record RegionDto(Guid Id, string DisplayName);
 public sealed record ReservationDto(Guid Id, Guid RegionId, string RegionName, ReservationState State, long Version);
