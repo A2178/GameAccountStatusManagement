@@ -32,8 +32,8 @@ public sealed class PostgreSqlCoordinationTests
         var results = await Task.WhenAll(attemptA, attemptB);
         Console.WriteLine("AC-008 concurrent results: {0} / {1}", results[0]?.GetType().Name ?? "Success", results[1]?.GetType().Name ?? "Success");
 
-        Assert.Single(results.Where(result => result is null));
-        Assert.Single(results.Where(result => result is VersionConflictException));
+        Assert.Single(results, result => result is null);
+        Assert.Single(results, result => result is VersionConflictException);
         await using var verification = CreateDb();
         var regions = await verification.Reservations.Where(x => x.State != ReservationState.Released).Select(x => x.RegionId).Distinct().ToListAsync();
         Console.WriteLine("AC-008 active distinct region count: {0}; region: {1}", regions.Count, regions.Single());
