@@ -40,9 +40,10 @@ jobs:
         run: |
           PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d postgres -c 'DROP DATABASE workspace_test WITH (FORCE);'
           PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d postgres -c 'CREATE DATABASE workspace_test;'
-          dotnet ef database update 202609090001_InitialCreate --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+          # M0 使用既有的 12 位時間前綴；EF 只將 14 位前綴視為完整 migration ID，因此以唯一類別名稱指定。
+          dotnet ef database update InitialCreate --no-build --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
           PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d workspace_test -c "INSERT INTO preview_accounts (\"Id\", \"DisplayName\") VALUES ('10000000-0000-0000-0000-000000000099', '升級保留測試帳號');"
-          dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+          dotnet ef database update --no-build --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
           test "$(PGPASSWORD=workspace_test_only psql -h localhost -U workspace -d workspace_test -Atc "SELECT count(*) FROM preview_accounts WHERE \"Id\" = '10000000-0000-0000-0000-000000000099';")" = "1"
       - name: Run multi-session browser acceptance
         run: |
