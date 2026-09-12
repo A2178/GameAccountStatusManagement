@@ -11,5 +11,10 @@ export default defineConfig({
       '/hubs': { target: 'http://localhost:5080', ws: true },
     },
   },
-  test: { environment: 'jsdom' },
+  test: {
+    environment: 'jsdom',
+    environmentOptions: {
+      jsdom: { url: 'http://localhost/' },
+    },
+  },
 })
