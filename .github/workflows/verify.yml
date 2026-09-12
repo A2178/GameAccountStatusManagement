@@ -32,6 +32,8 @@ jobs:
       - run: bash scripts/bootstrap.sh
       - name: Build solution before running EF tooling
         run: dotnet build Workspace.slnx --no-restore --verbosity normal
+      - name: Verify EF model matches the committed snapshot
+        run: dotnet ef migrations has-pending-model-changes --no-build --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
       - run: dotnet ef database update --no-build --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
       - run: bash scripts/verify.sh
       - name: Verify upgrade from M0 without deleting preview data
