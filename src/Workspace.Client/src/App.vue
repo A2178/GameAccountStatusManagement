@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr'
+import { HubConnectionBuilder, HubConnectionState, type HubConnection } from '@microsoft/signalr'
 import { computed, onMounted, ref } from 'vue'
 
 type Session = { participantId: string; nickname: string; canReadAudit: boolean }
@@ -19,7 +19,7 @@ const busy = ref(false)
 const online = ref(false)
 const audits = ref<Audit[]>([])
 const allCards = computed(() => snapshot.value?.accounts.flatMap(account => account.cards.map(card => ({ account, card }))) ?? [])
-let connection = new HubConnectionBuilder().withUrl('/hubs/workspace').withAutomaticReconnect().build()
+let connection: HubConnection | undefined
 let handlersRegistered = false
 
 async function ensureCsrf() { csrf.value = (await request<{ token: string }>('/api/session/csrf')).token }
@@ -43,15 +43,20 @@ async function refresh() {
   if (session.value.canReadAudit) audits.value = await request<Audit[]>('/api/audit')
 }
 async function connect() {
-  if (connection.state === HubConnectionState.Disconnected) {
+  connection ??= new HubConnectionBuilder()
+    .withUrl(new URL('/hubs/workspace', window.location.href).toString())
+    .withAutomaticReconnect()
+    .build()
+  const activeConnection = connection
+  if (activeConnection.state === HubConnectionState.Disconnected) {
     if (!handlersRegistered) {
-      connection.on('snapshotChanged', async (version: number) => { if (!snapshot.value || version > snapshot.value.version) await refresh() })
-      connection.onreconnecting(() => { online.value = false })
-      connection.onreconnected(async () => { online.value = true; await refresh() })
-      connection.onclose(() => { online.value = false; window.setTimeout(connect, 3000) })
+      activeConnection.on('snapshotChanged', async (version: number) => { if (!snapshot.value || version > snapshot.value.version) await refresh() })
+      activeConnection.onreconnecting(() => { online.value = false })
+      activeConnection.onreconnected(async () => { online.value = true; await refresh() })
+      activeConnection.onclose(() => { online.value = false; window.setTimeout(connect, 3000) })
       handlersRegistered = true
     }
-    try { await connection.start(); online.value = true } catch { online.value = false; window.setTimeout(connect, 3000) }
+    try { await activeConnection.start(); online.value = true } catch { online.value = false; window.setTimeout(connect, 3000) }
   }
 }
 async function command(account: Account, card: Card, action: 'reserve' | 'enter' | 'cancel' | 'return-home', regionId?: string) {
