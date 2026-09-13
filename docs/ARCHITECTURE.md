@@ -29,7 +29,7 @@
 | `src/Workspace.Desktop/` | WPF、WebView2、視窗／系統匣／快捷鍵 |
 | `tests/Workspace.Domain.Tests/` | 領域規則及日期邊界 |
 | `tests/Workspace.IntegrationTests/` | PostgreSQL 交易、API 與回應投影 |
-| `tests/e2e/` | 多使用者瀏覽器流程 |
+| `src/Workspace.Client/tests/e2e/` | 多使用者瀏覽器流程，使用前端套件內的 Playwright 依賴 |
 | `scripts/` | 可重建的啟動、驗證、打包與 migration 操作 |
 | `.github/workflows/` | 實際建立並驗證的 CI／部署流程 |
 

@@ -53,6 +53,8 @@ M0／M1 已使用的 12 位時間前綴 migration ID 保持不變，DbContext �
 
 瀏覽器自動驗收可執行：
 
+Playwright 案例放在 `src/Workspace.Client/tests/e2e/`，與前端套件共用已鎖定的依賴；Vitest 只收集 `src/` 內的單元測試。
+
 ```bash
 npx --prefix src/Workspace.Client playwright install chromium
 npm run e2e --prefix src/Workspace.Client
