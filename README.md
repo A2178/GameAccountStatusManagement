@@ -37,6 +37,8 @@ pwsh scripts/package.ps1
 
 `bootstrap` 檢查 SDK 與 Node 主要版本並安裝依賴。`dev` 只會依 `compose.yaml` 啟動開發用 PostgreSQL，套用 migration，然後在 `http://localhost:5173` 啟動 Vue，API 位於 `http://localhost:5080`。`verify` 執行 .NET restore／build／test，以及前端型別、測試與建置。`package` 將 Web 發布到 `artifacts/web`，其中包含編譯後的 Vue 靜態檔案。
 
+M0／M1 已使用的 12 位時間前綴 migration ID 保持不變，DbContext 的相容解析器支援以完整 ID 或名稱指定版本；新 migration 仍產生標準 14 位時間前綴。請勿改名既有 migration 或清除資料庫歷史。CI 會驗證從 M0 升級後仍保留額外加入的測試帳號，並驗證空資料庫建置（FR-020／AC-053）。
+
 ## M1 雙使用者預覽驗收
 
 1. 執行 `bash scripts/dev.sh`（Windows 使用 `pwsh scripts/dev.ps1`），開啟 `http://localhost:5173`。

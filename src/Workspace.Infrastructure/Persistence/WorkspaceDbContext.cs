@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Workspace.Domain;
 
 namespace Workspace.Infrastructure.Persistence;
@@ -12,6 +13,9 @@ public sealed class WorkspaceDbContext(DbContextOptions<WorkspaceDbContext> opti
     public DbSet<ParticipantSession> Participants => Set<ParticipantSession>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<WorkspaceState> WorkspaceStates => Set<WorkspaceState>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        => optionsBuilder.ReplaceService<IMigrationsIdGenerator, WorkspaceMigrationsIdGenerator>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
