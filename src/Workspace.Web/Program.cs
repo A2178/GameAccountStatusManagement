@@ -27,12 +27,14 @@ builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.C
 builder.Services.AddHealthChecks();
 builder.Services.AddDbContext<WorkspaceDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("Workspace")));
 builder.Services.AddScoped<IWorkspaceCoordinator, WorkspaceCoordinator>();
+builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
 builder.Services.AddSingleton<IWorkspaceNotifier, SignalRWorkspaceNotifier>();
 
 var app = builder.Build();
 app.Use(async (context, next) =>
 {
     try { await next(context); }
+    catch (FieldConflictException exception) { context.Response.StatusCode = 409; await context.Response.WriteAsJsonAsync(new { message = exception.Message, current = exception.Current }); }
     catch (VersionConflictException exception) { await ErrorAsync(context, 409, exception.Message); }
     catch (DomainRuleException exception) { await ErrorAsync(context, 409, exception.Message); }
     catch (UnauthorizedAccessException exception) { await ErrorAsync(context, 403, exception.Message); }
@@ -79,6 +81,18 @@ api.MapPut("/cards/{cardId:guid}/usage", (Guid cardId, CardUsageCommand command,
 api.MapPost("/accounts", (CreateAccountCommand command, ClaimsPrincipal user, IWorkspaceCoordinator service, CancellationToken ct) => service.CreateAccountAsync(ToSession(user), command, ct));
 api.MapPost("/accounts/{accountId:guid}/cards", (Guid accountId, CreateCardCommand command, ClaimsPrincipal user, IWorkspaceCoordinator service, CancellationToken ct) => service.CreateCardAsync(ToSession(user), accountId, command, ct));
 api.MapGet("/audit", (ClaimsPrincipal user, IWorkspaceCoordinator service, CancellationToken ct) => service.GetAuditAsync(ToSession(user), ct));
+api.MapGet("/configuration", (IConfigurationService service, CancellationToken ct) => service.GetAsync(ct));
+api.MapGet("/collections/{id:guid}", (Guid id, IConfigurationService service, CancellationToken ct) => service.GetCollectionAsync(id, ct));
+api.MapPost("/collections", async (CreateCollectionCommand command, ClaimsPrincipal user, IConfigurationService service, CancellationToken ct) => { await service.CreateCollectionAsync(ToSession(user), command, ct); return Results.Ok(new { saved = true }); });
+api.MapPost("/collections/{id:guid}/records", async (Guid id, CreateCollectionCommand command, ClaimsPrincipal user, IConfigurationService service, CancellationToken ct) => { await service.CreateRecordAsync(ToSession(user), id, command, ct); return Results.Ok(new { saved = true }); });
+api.MapPut("/fields/{id:guid}", async (Guid id, SaveFieldCommand command, ClaimsPrincipal user, IConfigurationService service, CancellationToken ct) => { await service.SaveFieldAsync(ToSession(user), id, command, ct); return Results.Ok(new { saved = true }); });
+api.MapPost("/fields/{id:guid}/delete", async (Guid id, VersionCommand command, ClaimsPrincipal user, IConfigurationService service, CancellationToken ct) => { await service.DeleteFieldAsync(ToSession(user), id, command.ExpectedVersion, ct); return Results.Ok(new { saved = true }); });
+api.MapPut("/fields/{id:guid}/records/{recordId:guid}", (Guid id, Guid recordId, SaveValueCommand command, ClaimsPrincipal user, IConfigurationService service, CancellationToken ct) => service.SaveValueAsync(ToSession(user), id, recordId, command, ct));
+api.MapPut("/fields/{id:guid}/shared", (Guid id, SaveValueCommand command, ClaimsPrincipal user, IConfigurationService service, CancellationToken ct) => service.SaveValueAsync(ToSession(user), id, null, command, ct));
+api.MapPut("/views/{id:guid}", async (Guid id, SaveViewCommand command, ClaimsPrincipal user, IConfigurationService service, CancellationToken ct) => { await service.SaveViewAsync(ToSession(user), id, command, ct); return Results.Ok(new { saved = true }); });
+api.MapPut("/names/{target}/{id:guid}", async (string target, Guid id, RenameCommand command, ClaimsPrincipal user, IConfigurationService service, CancellationToken ct) => { await service.RenameAsync(ToSession(user), target, id, command, ct); return Results.Ok(new { saved = true }); });
+api.MapPut("/settings", async (SaveSettingsCommand command, ClaimsPrincipal user, IConfigurationService service, CancellationToken ct) => { await service.SaveSettingsAsync(ToSession(user), command, ct); return Results.Ok(new { saved = true }); });
+api.MapPut("/cards/{id:guid}/stage", async (Guid id, MoveStageCommand command, ClaimsPrincipal user, IConfigurationService service, CancellationToken ct) => { await service.MoveStageAsync(ToSession(user), id, command, ct); return Results.Ok(new { saved = true }); });
 
 app.MapHub<WorkspaceHub>("/hubs/workspace").RequireAuthorization();
 app.MapHealthChecks("/health");
