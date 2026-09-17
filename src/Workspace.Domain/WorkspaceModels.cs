@@ -21,7 +21,8 @@ public sealed class GameAccount
     public Guid Id { get; private set; }
     public string DisplayName { get; private set; } = string.Empty;
     public long CoordinationVersion { get; private set; }
-    public void Rename(string value) => DisplayName = Required(value, "帳號名稱");
+    public long MetadataVersion { get; private set; }
+    public void Rename(string value) { DisplayName = Required(value, "帳號名稱"); MetadataVersion++; }
     public void AdvanceVersion() => CoordinationVersion++;
     private static string Required(string value, string label) =>
         string.IsNullOrWhiteSpace(value) ? throw new DomainRuleException($"{label}不能空白。") : value.Trim();
@@ -37,8 +38,10 @@ public sealed class CharacterCard
     public string DisplayName { get; private set; } = string.Empty;
     public CardUsageStatus UsageStatus { get; private set; }
     public Guid? PrimaryOperatorId { get; private set; }
-    public void Rename(string value) => DisplayName = string.IsNullOrWhiteSpace(value)
-        ? throw new DomainRuleException("卡片名稱不能空白。") : value.Trim();
+    public Guid? StageId { get; private set; }
+    public long MetadataVersion { get; private set; }
+    public void Rename(string value) { DisplayName = FieldValuePolicy.Name(value); MetadataVersion++; }
+    public void MoveStage(Guid stageId) { StageId = stageId; MetadataVersion++; }
     public void SetUsage(CardUsageStatus status, Guid? primaryOperatorId)
     { UsageStatus = status; PrimaryOperatorId = status == CardUsageStatus.InUse ? primaryOperatorId : null; }
 }
@@ -49,6 +52,8 @@ public sealed class FieldRegion
     public FieldRegion(Guid id, string displayName) { Id = id; DisplayName = displayName.Trim(); }
     public Guid Id { get; private set; }
     public string DisplayName { get; private set; } = string.Empty;
+    public long Version { get; private set; } = 1;
+    public void Rename(string value) { DisplayName = FieldValuePolicy.Name(value); Version++; }
 }
 
 public sealed class ResourceReservation

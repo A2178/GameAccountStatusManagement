@@ -62,3 +62,4 @@ appsettings.Development.json
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+*.tsbuildinfo

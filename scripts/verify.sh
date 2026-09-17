@@ -4,6 +4,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dotnet restore "$root/Workspace.slnx"
 dotnet build "$root/Workspace.slnx" --no-restore
 dotnet test "$root/Workspace.slnx" --no-build --logger "console;verbosity=detailed"
+dotnet run --project "$root/tools/Workspace.Contracts" -- "$root/src/Workspace.Client/src/contracts.generated.ts" --check
 npm install --prefix "$root/src/Workspace.Client"
 npm run typecheck --prefix "$root/src/Workspace.Client"
 npm test --prefix "$root/src/Workspace.Client"

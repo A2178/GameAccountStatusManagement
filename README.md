@@ -2,7 +2,7 @@
 
 版本：1.0　｜　基準日期：2026-09-09　｜　文件語言：繁體中文
 
-本 repository 已完成 M0 基線，並加入 M1 的暱稱工作階段、帳號／卡片狀態、區域預約與入場協調、PostgreSQL 並行保護、AuditEvent 及 SignalR 同步。「協作工作區」仍是中性的暫定名稱。
+本 repository 包含 M0／M1 的環境、暱稱入口及區域協調，以及 M2 的可配置名稱、帶值標籤、帳密表、自由表格與視圖。工作區名稱可在設定頁修改。
 
 ## 開發需求
 
@@ -60,7 +60,46 @@ npx --prefix src/Workspace.Client playwright install chromium
 npm run e2e --prefix src/Workspace.Client
 ```
 
-M1 尚未包含 M2 的自由欄位／帳密表、M3 的完整 presence 游標、M4 的資格／金幣及後續桌面面板；這些入口目前不適用，也不列為本階段已驗證功能。
+M3 的在線／編輯位置提示、M4 的資格／金幣及後續 Windows 桌面程式尚未實作。M2 階段分頁是同一批卡片的篩選視圖；移到「正式活動」不代表已有入場資格。Web 精簡面板視圖不等於 WPF 桌面程式。
+
+## M2 操作與驗收
+
+- **設定**：改工作區與卡片稱呼、設定分頁名稱、區域／階段名稱。選擇資料集後，管理欄位與視圖。名稱、顏色、順序與選項改名都保留固定 ID。
+- **欄位**：文字、整數、數字、單選、多選、核取方塊、日期、日期時間、帳號／卡片關聯、純標記。預設為共通定義、各自填值；也可選共用值或手動掛載的個別標籤。
+- **帳號**：登入帳號、密碼、擁有者都是直接顯示的普通文字欄位。名稱按鈕可改別名；這一列與卡片的 AccountId 是同一個身分，不建立第二份帳號。測試只輸入虛構帳密。
+- **自由表格**：在設定新增資料集及欄位，再切到新分頁新增資料列、點儲存格編輯。搜尋與臨時排序只影響自己的畫面；「調整視圖」保存的是全體共用的名稱、欄位顯示、篩選、排序及顯示方式。
+- **階段與視圖**：卡片上的階段選單移動同一張卡片。表格、看板、簡易儀表板與精簡面板共用資料。固定「區域操作」入口隨時可以預約／取消／入場／回村，隱藏或移除區域欄位外觀不會解除占用。
+- **衝突**：不同欄位可分別保存；同一值被更新時保留草稿並顯示最新值，需要點「採用最新版本，保留草稿」才可再次提交。定義刪除後仍可複製草稿。0 與空值不同。
+
+有既有值時，切換共通／個別／共享範圍會拒絕，避免隱含複製或遺失資料；可另建欄位再明確填入。型別、選項變更需通過現值驗證。全部欄位值都不寫入 AuditEvent 描述，密碼因此不會被複製到日誌；日誌保留目標 ID、名稱及操作。
+
+### 從目前 Codespaces 的 M1 升級
+
+先停止舊的網站程序，確認工作目錄沒有需要保留的未提交修改，再切到已取得的 M2 分支（合併後可使用 main）。在已準備好 .NET 10.0.1xx 與 Node.js 20 的 Bash 終端執行：
+
+```bash
+git fetch origin
+git switch codex/m2-configurable-data
+git pull --ff-only
+bash scripts/bootstrap.sh
+docker compose up -d --wait
+dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+dotnet publish src/Workspace.Web -c Release -o artifacts/codespaces-m2
+cd artifacts/codespaces-m2
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:5080 dotnet Workspace.Web.dll
+```
+
+保留 5080 連接埠為 Private，再重新整理原預覽網址。若任一命令失敗，停止後續步驟。正式資料庫升級前需自行完成備份；上述流程針對既有開發預覽庫，不會清空資料。
+
+`20260917013218_ConfigurableData` 新增 M2 資料表與 metadata/stage 欄位；保留 M0／M1 migration ID、帳號、卡片與占用資料。舊卡片初始階段為「未指定」，不猜測其遊戲進度。降版會移除 M2 自訂資料，不可當成無損程式回退。CI 同時驗證空庫、M0 升級，以及含有效占用的 M1 升級。
+
+API 型別由後端 DTO 產生到 `contracts.generated.ts`，驗證腳本會檢查是否漂移。修改 DTO 後執行：
+
+```bash
+dotnet run --project tools/Workspace.Contracts
+```
+
+具體測試、範圍與升級證據見 [M2 驗證紀錄](docs/M2_VALIDATION.md)。
 
 若要單獨重建開發資料庫，可先刪除開發 volume，再重新啟動：
 

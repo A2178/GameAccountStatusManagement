@@ -55,7 +55,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: m1-browser-evidence
+          name: m2-browser-evidence
           if-no-files-found: ignore
           path: |
             artifacts/playwright-report
