@@ -55,6 +55,7 @@ public sealed class ParticipantSession
     public string Nickname { get; private set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; private set; }
     public bool IsAdmin => Nickname == "Admin";
+    public void Rename(string nickname) => Nickname = FieldValuePolicy.Name(nickname);
 }
 
 public sealed class AuditEvent

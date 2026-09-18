@@ -2,7 +2,7 @@
 
 版本：1.0　｜　基準日期：2026-09-09　｜　文件語言：繁體中文
 
-本 repository 包含 M0／M1 的環境、暱稱入口及區域協調，以及 M2 的可配置名稱、帶值標籤、帳密表、自由表格與視圖。工作區名稱可在設定頁修改。
+本 repository 包含 M0／M1 的環境、暱稱入口及區域協調，以及 M2 的可配置名稱、帶值標籤、帳密表、自由表格與視圖，並已加入 M3 多人在線／編輯提示、暱稱切換及重連校對。工作區名稱可在設定頁修改。
 
 ## 開發需求
 
@@ -60,7 +60,7 @@ npx --prefix src/Workspace.Client playwright install chromium
 npm run e2e --prefix src/Workspace.Client
 ```
 
-M3 的在線／編輯位置提示、M4 的資格／金幣及後續 Windows 桌面程式尚未實作。M2 階段分頁是同一批卡片的篩選視圖；移到「正式活動」不代表已有入場資格。Web 精簡面板視圖不等於 WPF 桌面程式。
+M4 的資格／金幣及後續 Windows 桌面程式尚未實作。M2 階段分頁是同一批卡片的篩選視圖；移到「正式活動」不代表已有入場資格。Web 精簡面板視圖不等於 WPF 桌面程式。
 
 ## M2 操作與驗收
 
@@ -100,6 +100,30 @@ dotnet run --project tools/Workspace.Contracts
 ```
 
 具體測試、範圍與升級證據見 [M2 驗證紀錄](docs/M2_VALIDATION.md)。
+
+## M3 多人協作與 Codespaces 預覽
+
+開兩個瀏覽器工作階段，查看頁首的在線名單、代表色與短碼。同一工作階段開多分頁只計一人；同名的獨立工作階段仍分開。點卡片或表格儲存格時，其他人可看到查看／編輯提示；共用欄位的編輯提示會出現在所有相關資料列。
+
+草稿留在自己的頁面，保存後才同步。兩人改同一儲存格時會顯示最新值並保留草稿；斷線時保存停用，重連完成版本核對後恢復。心跳逾時只清除在線提示，不清除預約、占用或主要操作者。
+
+右上「更改暱稱」保留目前身分及多分頁關聯。精確 `Admin` 仍適用既有隱身及日誌規則，改回普通暱稱後既有分頁與舊 Cookie 也失去日誌權限。預設心跳 10 秒、清除逾時 30 秒、資料校對 15 秒；設定與自動驗證見 [M3 驗證紀錄](docs/M3_VALIDATION.md)。
+
+從 Codespaces 的 M2 預覽升級：停止原網站程序，保留工作目錄修改後，在 repository 根目錄執行：
+
+```bash
+git fetch origin
+git switch codex/m3-live-collaboration
+git pull --ff-only
+bash scripts/bootstrap.sh
+docker compose up -d --wait
+dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+dotnet publish src/Workspace.Web -c Release -o artifacts/codespaces-m3
+cd artifacts/codespaces-m3
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:5080 dotnet Workspace.Web.dll
+```
+
+PR 合併後可改用 `main`。保留 5080 為 Private，重新整理預覽頁；任一命令失敗就停止後續步驟。M3 沒有新的 schema migration，不需清空資料庫；既有 M2 欄位、值、卡片與占用會保留。重啟後在線名單由心跳重新建立。
 
 若要單獨重建開發資料庫，可先刪除開發 volume，再重新啟動：
 

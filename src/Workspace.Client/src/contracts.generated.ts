@@ -30,6 +30,15 @@ export type CardUsageCommand = {
 
 export type CardUsageStatus = 'Available' | 'InUse' | 'NotInUse'
 
+export type ChangeNicknameCommand = {
+  nickname: string
+}
+
+export type CollaborationSettingsDto = {
+  heartbeatSeconds: number
+  reconcileSeconds: number
+}
+
 export type CollectionDefinition = {
   id: string
   name: string
@@ -115,6 +124,35 @@ export type NamedTargetDto = {
   id: string
   name: string
   version: number
+}
+
+export type PresenceCommand = {
+  collectionId: string | null
+  recordId: string | null
+  fieldId: string | null
+  mode: string
+}
+
+export type PresenceMemberDto = {
+  participantId: string
+  nickname: string
+  shortCode: string
+  color: string
+  targets: (PresenceTargetDto)[]
+}
+
+export type PresenceSnapshotDto = {
+  epoch: string
+  version: number
+  members: (PresenceMemberDto)[]
+}
+
+export type PresenceTargetDto = {
+  collectionId: string
+  recordId: string | null
+  fieldId: string | null
+  mode: string
+  label: string
 }
 
 export type RecordDto = {
@@ -239,4 +277,8 @@ export type WorkspaceSnapshotDto = {
   version: number
   regions: (RegionDto)[]
   accounts: (AccountDto)[]
+}
+
+export type WorkspaceVersionDto = {
+  version: number
 }
