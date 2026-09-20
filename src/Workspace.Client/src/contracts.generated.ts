@@ -8,6 +8,17 @@ export type AccountDto = {
   cards: (CardDto)[]
 }
 
+export type ActivityDto = {
+  id: string
+  qualificationCycleId: string
+  channel: string
+  occurredAt: string
+  recordedAt: string
+  endedAt: string | null
+  operatorName: string | null
+  version: number
+}
+
 export type AuditEventDto = {
   id: string
   occurredAt: string
@@ -21,6 +32,27 @@ export type CardDto = {
   usageStatus: CardUsageStatus
   primaryOperatorName: string | null
   reservation: ReservationDto | null
+}
+
+export type CardProgressionDto = {
+  cardId: string
+  name: string
+  accountId: string
+  stageId: string | null
+  replacesCardId: string | null
+  archivedAt: string | null
+  profileId: string | null
+  level: number
+  taskItems: number
+  meritBalance: number
+  cumulativeCredits: number
+  version: number
+  creditVersion: number
+  permanentlyDisqualified: boolean
+  qualificationStatus: string
+  cycles: (QualificationDto)[]
+  activities: (ActivityDto)[]
+  entries: (CreditEntryDto)[]
 }
 
 export type CardUsageCommand = {
@@ -80,6 +112,17 @@ export type CreateCardCommand = {
 export type CreateCollectionCommand = {
   name: string
 }
+
+export type CreditEntryDto = {
+  id: string
+  kind: CreditKind
+  amount: number
+  totalAfter: number
+  reason: string
+  recordedAt: string
+}
+
+export type CreditKind = 'Income' | 'Conversion' | 'Correction'
 
 export type CurrentSessionDto = {
   participantId: string
@@ -155,6 +198,76 @@ export type PresenceTargetDto = {
   label: string
 }
 
+export type ProgressionCommand = {
+  requestId: string
+  operation: ProgressionOperation
+  expectedVersion: number
+  profileId: string | null
+  level: number
+  taskItems: number
+  meritBalance: number
+  amount: number
+  expectedCreditVersion: number
+  activityId: string | null
+  expectedActivityVersion: number
+  channel: string
+  occurredAt: string | null
+  reason: string
+  replacementName: string
+}
+
+export type ProgressionOperation = 'ReportProgress' | 'StartActivity' | 'CorrectActivity' | 'EndActivity' | 'Requalify' | 'Disqualify' | 'InvalidateQualification' | 'RecordIncome' | 'RecordConversion' | 'CorrectCredits' | 'Archive' | 'CreateReplacement'
+
+export type ProgressionProfile = {
+  id: string
+  name: string
+  levelTarget: number
+  taskItemTarget: number
+  meritTarget: number
+  version: number
+}
+
+export type ProgressionResultDto = {
+  requestId: string
+  workspaceVersion: number
+  cardVersion: number
+  creditVersion: number
+  meritBalance: number
+  cumulativeCredits: number
+  activityId: string | null
+  replacementCardId: string | null
+}
+
+export type ProgressionSettings = {
+  id: number
+  timeZoneId: string
+  resetHour: number
+  conversionRequiresActiveActivity: boolean
+  accumulationStageId: string
+  version: number
+}
+
+export type ProgressionSnapshotDto = {
+  version: number
+  serverTime: string
+  settings: ProgressionSettings
+  profiles: (ProgressionProfile)[]
+  stages: (StageDefinition)[]
+  cards: (CardProgressionDto)[]
+}
+
+export type QualificationDto = {
+  id: string
+  qualifiedAt: string
+  eligibleFrom: string
+  timeZoneId: string
+  resetHour: number
+  thresholdSnapshot: ProgressionProfile
+  activatedAt: string | null
+  invalidatedAt: string | null
+  invalidationReason: string
+}
+
 export type RecordDto = {
   id: string
   name: string
@@ -203,10 +316,31 @@ export type SaveFieldCommand = {
   expectedVersion: number
 }
 
+export type SaveProfileCommand = {
+  name: string
+  levelTarget: number
+  taskItemTarget: number
+  meritTarget: number
+  expectedVersion: number
+}
+
+export type SaveProgressionSettingsCommand = {
+  timeZoneId: string
+  conversionRequiresActiveActivity: boolean
+  accumulationStageId: string
+  expectedVersion: number
+}
+
 export type SaveSettingsCommand = {
   name: string
   cardLabel: string
   settingsLabel: string
+  expectedVersion: number
+}
+
+export type SaveTransitionCommand = {
+  requirement: StageRequirement
+  allowedFromStageIds: (string)[]
   expectedVersion: number
 }
 
@@ -236,7 +370,11 @@ export type StageDefinition = {
   name: string
   position: number
   version: number
+  entryRequirement: StageRequirement
+  allowedFromStageIdsJson: string
 }
+
+export type StageRequirement = 'None' | 'Level' | 'Task' | 'Qualification'
 
 export type ValueDto = {
   fieldId: string
