@@ -21,6 +21,13 @@ public sealed class WorkspaceDbContext(DbContextOptions<WorkspaceDbContext> opti
     public DbSet<ViewDefinition> Views => Set<ViewDefinition>();
     public DbSet<StageDefinition> Stages => Set<StageDefinition>();
     public DbSet<WorkspaceSettings> Settings => Set<WorkspaceSettings>();
+    public DbSet<ProgressionProfile> ProgressionProfiles => Set<ProgressionProfile>();
+    public DbSet<ProgressionSettings> ProgressionSettings => Set<ProgressionSettings>();
+    public DbSet<CardProgression> Progressions => Set<CardProgression>();
+    public DbSet<QualificationCycle> QualificationCycles => Set<QualificationCycle>();
+    public DbSet<ActivitySession> Activities => Set<ActivitySession>();
+    public DbSet<CreditEntry> CreditEntries => Set<CreditEntry>();
+    public DbSet<CommandReceipt> CommandReceipts => Set<CommandReceipt>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         => optionsBuilder.ReplaceService<IMigrationsIdGenerator, WorkspaceMigrationsIdGenerator>();
@@ -43,6 +50,21 @@ public sealed class WorkspaceDbContext(DbContextOptions<WorkspaceDbContext> opti
         modelBuilder.Entity<StageDefinition>(e => { e.ToTable("stage_definitions"); e.HasKey(x => x.Id); e.Property(x => x.Name).HasMaxLength(80); });
         modelBuilder.Entity<WorkspaceSettings>(e => { e.ToTable("workspace_settings"); e.HasKey(x => x.Id); });
         modelBuilder.Entity<CharacterCard>().HasOne<StageDefinition>().WithMany().HasForeignKey(x => x.StageId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<AuditEvent>().Property(x => x.Description).HasMaxLength(1200);
+        modelBuilder.Entity<CharacterCard>().HasOne<CharacterCard>().WithMany().HasForeignKey(x => x.ReplacesCardId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<StageDefinition>().Property(x => x.EntryRequirement).HasConversion<string>();
+        modelBuilder.Entity<StageDefinition>().Property(x => x.AllowedFromStageIdsJson).HasColumnType("jsonb");
+        modelBuilder.Entity<ProgressionProfile>(e => { e.ToTable("progression_profiles"); e.HasKey(x => x.Id); e.Property(x => x.Name).HasMaxLength(80); });
+        modelBuilder.Entity<ProgressionSettings>(e => { e.ToTable("progression_settings"); e.HasKey(x => x.Id); e.HasOne<StageDefinition>().WithMany().HasForeignKey(x => x.AccumulationStageId).OnDelete(DeleteBehavior.Restrict); });
+        modelBuilder.Entity<CardProgression>(e => {
+            e.ToTable("card_progression", t => { t.HasCheckConstraint("CK_progression_balances", "\"MeritBalance\" >= 0 AND \"CumulativeCredits\" >= 0 AND \"CumulativeCredits\" <= 9007199254740991"); });
+            e.HasKey(x => x.CardId); e.HasOne<CharacterCard>().WithOne().HasForeignKey<CardProgression>(x => x.CardId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<ProgressionProfile>().WithMany().HasForeignKey(x => x.ProfileId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<QualificationCycle>(e => { e.ToTable("qualification_cycles"); e.HasKey(x => x.Id); e.Property(x => x.ThresholdSnapshotJson).HasColumnType("jsonb"); e.HasOne<CharacterCard>().WithMany().HasForeignKey(x => x.CardId).OnDelete(DeleteBehavior.Restrict); e.HasIndex(x => x.CardId).IsUnique().HasFilter("\"InvalidatedAt\" IS NULL"); });
+        modelBuilder.Entity<ActivitySession>(e => { e.ToTable("activity_sessions"); e.HasKey(x => x.Id); e.Property(x => x.Channel).HasMaxLength(80); e.HasOne<CharacterCard>().WithMany().HasForeignKey(x => x.CardId).OnDelete(DeleteBehavior.Restrict); e.HasOne<QualificationCycle>().WithMany().HasForeignKey(x => x.QualificationCycleId).OnDelete(DeleteBehavior.Restrict); e.HasIndex(x => x.CardId).IsUnique().HasFilter("\"EndedAt\" IS NULL"); });
+        modelBuilder.Entity<CreditEntry>(e => { e.ToTable("credit_entries"); e.HasKey(x => x.Id); e.Property(x => x.Kind).HasConversion<string>(); e.HasIndex(x => x.RequestId).IsUnique(); e.HasOne<CharacterCard>().WithMany().HasForeignKey(x => x.CardId).OnDelete(DeleteBehavior.Restrict); });
+        modelBuilder.Entity<CommandReceipt>(e => { e.ToTable("command_receipts"); e.HasKey(x => x.RequestId); e.Property(x => x.PayloadHash).HasMaxLength(64); e.Property(x => x.ResultJson).HasColumnType("jsonb"); e.HasOne<CharacterCard>().WithMany().HasForeignKey(x => x.CardId).OnDelete(DeleteBehavior.Restrict); });
     }
 }
 

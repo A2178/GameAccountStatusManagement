@@ -39,9 +39,13 @@ public sealed class CharacterCard
     public CardUsageStatus UsageStatus { get; private set; }
     public Guid? PrimaryOperatorId { get; private set; }
     public Guid? StageId { get; private set; }
+    public DateTimeOffset? ArchivedAt { get; private set; }
+    public Guid? ReplacesCardId { get; private set; }
     public long MetadataVersion { get; private set; }
     public void Rename(string value) { DisplayName = FieldValuePolicy.Name(value); MetadataVersion++; }
     public void MoveStage(Guid stageId) { StageId = stageId; MetadataVersion++; }
+    public void Archive(DateTimeOffset now) { ArchivedAt = now; MetadataVersion++; }
+    public void Replace(Guid predecessorId) { ReplacesCardId = predecessorId; }
     public void SetUsage(CardUsageStatus status, Guid? primaryOperatorId)
     { UsageStatus = status; PrimaryOperatorId = status == CardUsageStatus.InUse ? primaryOperatorId : null; }
 }

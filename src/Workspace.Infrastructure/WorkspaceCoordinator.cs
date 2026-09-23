@@ -88,8 +88,11 @@ public sealed class WorkspaceCoordinator(WorkspaceDbContext db, IWorkspaceNotifi
     private async Task<WorkspaceSnapshotDto> MutateAsync(CurrentSessionDto session, Guid cardId, long? expectedVersion, Func<GameAccount, CharacterCard, DateTimeOffset, Task<string>> mutation, CancellationToken ct)
     {
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        var card = await db.Cards.SingleOrDefaultAsync(x => x.Id == cardId, ct) ?? throw new DomainRuleException("找不到指定卡片。");
-        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM preview_accounts WHERE \"Id\" = {card.AccountId} FOR UPDATE", ct);
+        var accountId = await db.Cards.AsNoTracking().Where(x => x.Id == cardId).Select(x => (Guid?)x.AccountId).SingleOrDefaultAsync(ct) ?? throw new DomainRuleException("找不到指定卡片。");
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM preview_accounts WHERE \"Id\" = {accountId} FOR UPDATE", ct);
+        var card = await db.Cards.SingleAsync(x => x.Id == cardId, ct);
+        await db.Entry(card).ReloadAsync(ct);
+        if (card.ArchivedAt != null) throw new DomainRuleException("卡片已封存，不能更新使用或占用狀態。");
         var account = await db.Accounts.SingleAsync(x => x.Id == card.AccountId, ct);
         if (expectedVersion.HasValue && account.CoordinationVersion != expectedVersion.Value) throw new VersionConflictException();
         var now = DateTimeOffset.UtcNow;
@@ -120,7 +123,7 @@ public sealed class WorkspaceCoordinator(WorkspaceDbContext db, IWorkspaceNotifi
         var participants = await db.Participants.AsNoTracking().ToDictionaryAsync(x => x.Id, ct);
         var active = await db.Reservations.AsNoTracking().Where(x => x.State != ReservationState.Released).ToListAsync(ct);
         var regionNames = regions.ToDictionary(x => x.Id, x => x.DisplayName);
-        var cards = await db.Cards.AsNoTracking().OrderBy(x => x.DisplayName).ToListAsync(ct);
+        var cards = await db.Cards.AsNoTracking().Where(x => x.ArchivedAt == null).OrderBy(x => x.DisplayName).ToListAsync(ct);
         var accounts = await db.Accounts.AsNoTracking().OrderBy(x => x.DisplayName).ToListAsync(ct);
         return new WorkspaceSnapshotDto(version, regions, accounts.Select(account => new AccountDto(account.Id, account.DisplayName, account.CoordinationVersion,
             cards.Where(card => card.AccountId == account.Id).Select(card =>

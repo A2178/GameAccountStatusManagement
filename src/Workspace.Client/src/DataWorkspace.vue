@@ -6,15 +6,18 @@ import FieldEditor from './FieldEditor.vue'
 import ValueEditor from './ValueEditor.vue'
 import ViewEditor from './ViewEditor.vue'
 import PresenceBadges from './PresenceBadges.vue'
+import ProgressionWorkspace from './ProgressionWorkspace.vue'
+import { pendingOperation } from './progressionCommands'
+import type { ProgressionSnapshotDto } from './contracts.generated'
 import type { PresenceCommand, PresenceMemberDto } from './contracts.generated'
 import type { CollectionSnapshotDto, ConfigurationDto, FieldDto, RecordDto, SaveSettingsCommand, ValueDto, ViewDto, WorkspaceSnapshotDto } from './contracts.generated'
-const props = defineProps<{ snapshot?: WorkspaceSnapshotDto; online: boolean; members: PresenceMemberDto[]; self: string }>()
+const props = defineProps<{ snapshot?: WorkspaceSnapshotDto; progression?: ProgressionSnapshotDto; online: boolean; members: PresenceMemberDto[]; self: string }>()
 const emit = defineEmits<{ refresh: []; focus: [target: PresenceCommand]; syncFailed: [] }>()
 const displayNames: Record<string, string> = { Table: '表格', Board: '看板', Dashboard: '簡易儀表板', Panel: '精簡面板' }
 const cardsId = '40000000-0000-0000-0000-000000000001'
 const config = ref<ConfigurationDto>()
 const data = ref<CollectionSnapshotDto>()
-const active = ref('coordination')
+const active = ref(pendingOperation(sessionStorage, props.self) ? 'progression' : 'coordination')
 const settingsCollection = ref(cardsId)
 const message = ref(''); const busy = ref(false); const filter = ref('')
 const syncError = ref('')
@@ -105,11 +108,12 @@ function startSettings() { if (config.value) settingsDraft.value = { ...config.v
 <template>
   <section v-if="config" class="data-workspace">
     <div class="workspace-heading"><h2>{{ config.settings.name }}</h2><small>{{ config.settings.cardLabel }}與帳號共用即時資料</small></div>
-    <nav class="tabs" aria-label="工作區分頁"><button :class="{ selected: active === 'coordination' }" @click="active = 'coordination'">區域操作</button><button v-for="item in config.views" :key="item.id" :class="{ selected: active === item.id }" @click="active = item.id">{{ item.name }}</button><button :class="{ selected: active === 'settings' }" @click="active = 'settings'">{{ config.settings.settingsLabel }}</button></nav>
+    <nav class="tabs" aria-label="工作區分頁"><button :class="{ selected: active === 'coordination' }" @click="active = 'coordination'">區域操作</button><button :class="{ selected: active === 'progression' }" @click="active = 'progression'">養成與活動</button><button v-for="item in config.views" :key="item.id" :class="{ selected: active === item.id }" @click="active = item.id">{{ item.name }}</button><button :class="{ selected: active === 'settings' }" @click="active = 'settings'">{{ config.settings.settingsLabel }}</button></nav>
     <p v-if="message" role="status" class="notice">{{ message }}</p>
     <p v-if="syncError" class="error">{{ syncError }}</p>
     <p v-if="!online" class="notice">資料可能過期，重新連線後才能保存；編輯中的草稿會保留。</p>
-    <template v-if="active === 'settings'">
+    <ProgressionWorkspace v-if="active === 'progression' && progression" :data="progression" :online="online" :self="self" @refresh="emit('refresh')" @focus="focusRecord" />
+    <template v-else-if="active === 'settings'">
       <section class="settings-section"><h2>名稱與用語</h2><button @click="startSettings">編輯工作區用語</button>
         <form v-if="settingsDraft" class="inline-form" @submit.prevent="saveSettings"><label>工作區名稱<input v-model="settingsDraft.name" maxlength="80" required></label><label>卡片稱呼<input v-model="settingsDraft.cardLabel" maxlength="80" required></label><label>設定分頁名稱<input v-model="settingsDraft.settingsLabel" maxlength="80" required></label><button :disabled="busy || !online">保存用語</button></form>
         <div class="settings-list"><div v-for="region in config.regions" :key="region.id"><span>區域 · {{ region.name }}</span><button :disabled="!online" @click="rename('regions', region.id, region.name, region.version)">改名</button></div><div v-for="stage in config.stages" :key="stage.id"><span>階段 · {{ stage.name }}</span><button :disabled="!online" @click="rename('stages', stage.id, stage.name, stage.version)">改名</button></div></div>

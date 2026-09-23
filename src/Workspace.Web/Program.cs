@@ -29,6 +29,7 @@ builder.Services.AddHealthChecks();
 builder.Services.AddDbContext<WorkspaceDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("Workspace")));
 builder.Services.AddScoped<IWorkspaceCoordinator, WorkspaceCoordinator>();
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
+builder.Services.AddScoped<IProgressionService, ProgressionService>();
 builder.Services.AddSingleton<IWorkspaceNotifier, SignalRWorkspaceNotifier>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(sp => new PresenceRegistry(sp.GetRequiredService<TimeProvider>(), TimeSpan.FromSeconds(Math.Clamp(builder.Configuration.GetValue("Collaboration:PresenceTimeoutSeconds", 30), 3, 300))));
@@ -77,6 +78,11 @@ app.MapPost("/api/session", async (NicknameRequest request, WorkspaceDbContext d
 });
 
 var api = app.MapGroup("/api").RequireAuthorization();
+api.MapGet("/progression", (IProgressionService service, CancellationToken ct) => service.GetAsync(ct));
+api.MapPost("/cards/{cardId:guid}/progression", (Guid cardId, ProgressionCommand command, ClaimsPrincipal user, IProgressionService service, CancellationToken ct) => service.ExecuteAsync(ToSession(user), cardId, command, ct));
+api.MapPut("/progression/profiles/{id:guid}", async (Guid id, SaveProfileCommand command, ClaimsPrincipal user, IProgressionService service, CancellationToken ct) => { await service.SaveProfileAsync(ToSession(user), id, command, ct); return Results.Ok(new { saved = true }); });
+api.MapPut("/progression/settings", async (SaveProgressionSettingsCommand command, ClaimsPrincipal user, IProgressionService service, CancellationToken ct) => { await service.SaveSettingsAsync(ToSession(user), command, ct); return Results.Ok(new { saved = true }); });
+api.MapPut("/progression/stages/{id:guid}", async (Guid id, SaveTransitionCommand command, ClaimsPrincipal user, IProgressionService service, CancellationToken ct) => { await service.SaveTransitionAsync(ToSession(user), id, command, ct); return Results.Ok(new { saved = true }); });
 api.MapPut("/session/nickname", (ChangeNicknameCommand command, ClaimsPrincipal user, ICollaborationService service, CancellationToken ct) => service.RenameAsync(ToSession(user).ParticipantId, command, ct));
 api.MapGet("/presence", (ICollaborationService service, CancellationToken ct) => service.GetPresenceAsync(ct));
 api.MapGet("/collaboration/settings", () => new CollaborationSettingsDto(Math.Clamp(builder.Configuration.GetValue("Collaboration:HeartbeatSeconds", 10), 1, 60), Math.Clamp(builder.Configuration.GetValue("Collaboration:ReconcileSeconds", 15), 1, 60)));

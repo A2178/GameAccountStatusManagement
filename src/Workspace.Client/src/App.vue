@@ -6,11 +6,13 @@ import DataWorkspace from './DataWorkspace.vue'
 import PresenceBadges from './PresenceBadges.vue'
 import { memberLabel } from './presence'
 import { SnapshotSynchronizer } from './synchronization'
+import type { ProgressionSnapshotDto } from './contracts.generated'
 import type { CurrentSessionDto as Session, RegionDto as Region, CardDto as Card, AccountDto as Account, WorkspaceSnapshotDto as Snapshot, AuditEventDto as Audit, PresenceSnapshotDto, PresenceCommand, CollaborationSettingsDto, WorkspaceVersionDto } from './contracts.generated'
 
 const session = ref<Session>()
 const nickname = ref('')
 const snapshot = ref<Snapshot>()
+const progression = ref<ProgressionSnapshotDto>()
 const dataWorkspace = ref<InstanceType<typeof DataWorkspace>>()
 const message = ref('')
 const busy = ref(false)
@@ -53,6 +55,7 @@ const synchronizer = new SnapshotSynchronizer(async () => {
   await freshSession()
   const next = await request<Snapshot>('/api/snapshot')
   snapshot.value = next
+  progression.value = await request<ProgressionSnapshotDto>('/api/progression')
   await nextTick()
   await dataWorkspace.value?.refresh(true)
   if (session.value?.canReadAudit) {
@@ -167,7 +170,7 @@ onUnmounted(() => {
       <header class="topbar"><div><p class="eyebrow">FIELD COORDINATION</p><h1>區域協調看板</h1></div><div class="identity"><span :class="['status', online ? 'ok' : 'off']">{{ online ? '即時同步中' : '連線中斷，將自動重連' }}</span><strong>{{ session.nickname }}</strong><button class="secondary" :disabled="busy || !online" @click="renameSession">更改暱稱</button></div></header>
       <p v-if="message" :class="message === '狀態已保存。' ? 'notice' : 'error'">{{ message }}</p>
       <section class="presence-roster" aria-label="在線成員"><h2>在線成員 <small>{{ members.length }}</small></h2><p v-if="!online" class="muted">正在確認在線狀態…</p><ul><li v-for="person in members" :key="person.participantId" :data-participant="person.participantId"><strong :style="{ color: person.color }">{{ memberLabel(person) }}{{ person.participantId === session.participantId ? '（你）' : '' }}</strong><span v-for="(target, index) in person.targets" :key="index">{{ target.mode === 'Editing' ? '編輯中' : '查看中' }} · {{ target.label }}</span></li></ul></section>
-      <DataWorkspace ref="dataWorkspace" :snapshot="snapshot" :online="online" :members="members" :self="session.participantId" @refresh="reconcile" @focus="setFocus" @sync-failed="online = false" v-slot="{ fields, openValue, valueText, recordIds, cardLabel, stages, moveStage, stageId, focusRecord }">
+      <DataWorkspace ref="dataWorkspace" :snapshot="snapshot" :progression="progression" :online="online" :members="members" :self="session.participantId" @refresh="reconcile" @focus="setFocus" @sync-failed="online = false" v-slot="{ fields, openValue, valueText, recordIds, cardLabel, stages, moveStage, stageId, focusRecord }">
       <div class="toolbar"><button :disabled="busy || !online" @click="createAccount">新增帳號</button></div>
       <section class="regions"><article v-for="region in snapshot?.regions" :key="region.id" class="region" @dragover.prevent @drop="drop(region, $event)"><span class="dot"></span><h2>{{ region.displayName }}</h2><p>將尚未預約的卡片拖曳到這裡</p></article></section>
       <section v-for="account in snapshot?.accounts" :key="account.id" class="account">
