@@ -16,10 +16,15 @@ test('兩個工作階段競爭同帳號不同區域時只有一方成功', async
     secondCard.getByRole('button', { name: '預約赤色峽谷' }).click(),
   ])
 
-  await expect(first.getByText(/狀態已保存|資料已由其他人更新/)).toBeVisible()
-  await expect(second.getByText(/狀態已保存|資料已由其他人更新/)).toBeVisible()
+  // A fresh snapshot may arrive before the second click: both stale-version and
+  // current-version region-policy rejection are valid, but only one write may persist.
+  await expect(first.getByText(/狀態已保存|資料已由其他人更新|同一帳號仍有卡片/)).toBeVisible()
+  await expect(second.getByText(/狀態已保存|資料已由其他人更新|同一帳號仍有卡片/)).toBeVisible()
   const successes = await Promise.all([first.getByText('狀態已保存。').count(), second.getByText('狀態已保存。').count()])
   expect(successes.filter(Boolean)).toHaveLength(1)
+  const snapshot = await (await first.request.get('/api/snapshot')).json()
+  const account = snapshot.accounts.find((x: { id: string }) => x.id === '10000000-0000-0000-0000-000000000001')
+  expect(account.cards.filter((x: { reservation: unknown }) => x.reservation)).toHaveLength(1)
   await first.screenshot({ path: testInfo.outputPath('雙工作階段區域衝突.png'), fullPage: true })
   await firstContext.close(); await secondContext.close()
 })

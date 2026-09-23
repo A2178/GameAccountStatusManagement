@@ -7,7 +7,7 @@ using Workspace.Infrastructure.Persistence;
 
 namespace Workspace.Infrastructure;
 
-public sealed class ConfigurationService(WorkspaceDbContext db, IWorkspaceNotifier notifier) : IConfigurationService
+public sealed class ConfigurationService(WorkspaceDbContext db, IWorkspaceNotifier notifier, TimeProvider? clock = null) : IConfigurationService
 {
     public async Task<ConfigurationDto> GetAsync(CancellationToken ct)
     {
@@ -25,7 +25,7 @@ public sealed class ConfigurationService(WorkspaceDbContext db, IWorkspaceNotifi
         var collection = await Collection(id, ct);
         List<RecordDto> records = collection.Kind switch
         {
-            CollectionKind.Cards => await db.Cards.AsNoTracking().Select(x => new RecordDto(x.Id, x.DisplayName, x.AccountId, x.StageId, x.MetadataVersion)).ToListAsync(ct),
+            CollectionKind.Cards => await db.Cards.AsNoTracking().Where(x => x.ArchivedAt == null).Select(x => new RecordDto(x.Id, x.DisplayName, x.AccountId, x.StageId, x.MetadataVersion)).ToListAsync(ct),
             CollectionKind.Accounts => await db.Accounts.AsNoTracking().Select(x => new RecordDto(x.Id, x.DisplayName, null, null, x.MetadataVersion)).ToListAsync(ct),
             _ => await db.DataRecords.AsNoTracking().Where(x => x.CollectionId == id).Select(x => new RecordDto(x.Id, x.Name, null, null, x.Version)).ToListAsync(ct)
         };
@@ -215,7 +215,23 @@ public sealed class ConfigurationService(WorkspaceDbContext db, IWorkspaceNotifi
         var accountId = await db.Cards.Where(x => x.Id == cardId).Select(x => (Guid?)x.AccountId).SingleOrDefaultAsync(ct) ?? throw Missing();
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM preview_accounts WHERE \"Id\" = {accountId} FOR UPDATE", ct);
         var card = await db.Cards.SingleAsync(x => x.Id == cardId, ct); Check(card.MetadataVersion, command.ExpectedVersion);
+        if (card.ArchivedAt != null) throw new DomainRuleException("卡片已封存，不能移動階段。");
         var stage = await db.Stages.SingleOrDefaultAsync(x => x.Id == command.StageId, ct) ?? throw Missing();
+        var allowed = JsonSerializer.Deserialize<Guid[]>(stage.AllowedFromStageIdsJson)!;
+        if (allowed.Length > 0 && (!card.StageId.HasValue || !allowed.Contains(card.StageId.Value))) throw new DomainRuleException("目前階段不在允許的來源階段中。");
+        if (stage.EntryRequirement != StageRequirement.None)
+        {
+            var progress = await db.Progressions.AsNoTracking().SingleOrDefaultAsync(x => x.CardId == cardId, ct) ?? throw new DomainRuleException("請先在養成與活動頁確認進度。");
+            var profile = await db.ProgressionProfiles.AsNoTracking().SingleOrDefaultAsync(x => x.Id == progress.ProfileId, ct) ?? throw new DomainRuleException("請先選擇職業門檻。");
+            if (stage.EntryRequirement == StageRequirement.Level && progress.Level < profile.LevelTarget) throw new DomainRuleException("尚未達到此職業的等級目標。");
+            if (stage.EntryRequirement == StageRequirement.Task && (progress.Level < profile.LevelTarget || progress.TaskItems < profile.TaskItemTarget)) throw new DomainRuleException("尚未完成等級與任務道具目標。");
+            if (stage.EntryRequirement == StageRequirement.Qualification)
+            {
+                if (progress.PermanentlyDisqualified) throw new DomainRuleException("此卡片已永久失格。");
+                var cycle = await db.QualificationCycles.AsNoTracking().SingleOrDefaultAsync(x => x.Id == progress.CurrentCycleId, ct) ?? throw new DomainRuleException("尚未達成投入資格。");
+                cycle.EnsureEligible((clock ?? TimeProvider.System).GetUtcNow());
+            }
+        }
         card.MoveStage(stage.Id); return $"將「{card.DisplayName}」移至「{stage.Name}」（所在地不變）";
     }, ct);
 

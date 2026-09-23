@@ -2,8 +2,10 @@
 import { computed, ref, shallowRef } from 'vue'
 import { ApiError, write } from './api'
 import { displayValue } from './fieldValues'
+import PresenceBadges from './PresenceBadges.vue'
+import type { PresenceMemberDto } from './contracts.generated'
 import type { FieldDto, JsonValue, RecordDto, SaveValueCommand, ValueDto } from './contracts.generated'
-const props = defineProps<{ field: FieldDto; initial: ValueDto; latestField?: FieldDto; latest: ValueDto; record: RecordDto; relations: RecordDto[]; online: boolean }>()
+const props = defineProps<{ field: FieldDto; initial: ValueDto; latestField?: FieldDto; latest: ValueDto; record: RecordDto; relations: RecordDto[]; online: boolean; members: PresenceMemberDto[]; self: string }>()
 const emit = defineEmits<{ close: []; saved: []; refresh: [] }>()
 const draft = shallowRef<JsonValue>(JSON.parse(JSON.stringify(props.initial.value)))
 const expected = ref(props.initial.version)
@@ -39,6 +41,7 @@ async function save(attached = true) {
 <template>
   <div class="modal-backdrop"><section class="editor" role="dialog" aria-modal="true" aria-labelledby="value-title">
     <h2 id="value-title">{{ field.name }} · {{ record.name }}</h2>
+    <PresenceBadges :members="members" :self="self" :record-id="record.id" :field-id="field.id" :shared="field.scope === 'Shared'" />
     <p v-if="field.scope === 'Shared'" class="notice">這是共用值，保存後會更新此資料集的所有資料列。</p>
     <form @submit.prevent="save()">
       <label>你的草稿

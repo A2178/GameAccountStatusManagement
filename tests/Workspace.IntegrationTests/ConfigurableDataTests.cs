@@ -236,7 +236,7 @@ public sealed class ConfigurableDataTests : IClassFixture<WebApplicationFactory<
             await db.Database.MigrateAsync();
             var reservation = await db.Reservations.SingleAsync(); Assert.Equal(7, reservation.Version); Assert.Equal(ReservationState.Occupied, reservation.State);
             Assert.Equal(reservation.AccountId, (await db.Cards.SingleAsync(x => x.Id == reservation.CardId)).AccountId);
-            Assert.Equal(3, (await db.Database.GetAppliedMigrationsAsync()).Count());
+            Assert.Equal(4, (await db.Database.GetAppliedMigrationsAsync()).Count());
             Assert.Equal(2, await db.Collections.CountAsync());
             Assert.False(db.Database.HasPendingModelChanges());
         }

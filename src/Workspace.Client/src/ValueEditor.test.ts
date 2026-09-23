@@ -6,7 +6,7 @@ import type { FieldDto, ValueDto } from './contracts.generated'
 vi.mock('./api', () => ({ write: vi.fn(), ApiError: class extends Error {} }))
 const field: FieldDto = { id: 'f', collectionId: 'c', name: '功勳備註', kind: 'Integer', scope: 'Common', binding: 'None', options: [], relationCollectionId: null, color: '#526b84', position: 0, required: false, hidden: false, version: 1 }
 const initial: ValueDto = { fieldId: 'f', recordId: 'r', value: 0, attached: true, version: 1 }
-function editor() { return mount(ValueEditor, { props: { field, initial, latest: initial, latestField: field, record: { id: 'r', name: '甲', accountId: null, stageId: null, version: 1 }, relations: [], online: true } }) }
+function editor() { return mount(ValueEditor, { props: { field, initial, latest: initial, latestField: field, record: { id: 'r', name: '甲', accountId: null, stageId: null, version: 1 }, relations: [], online: true, members: [], self: 'self' } }) }
 describe('儲存格草稿與版本', () => {
   it('遠端更新不覆蓋本地草稿，明確比較後才能再保存', async () => {
     const wrapper = editor(); await wrapper.get('input').setValue('9')

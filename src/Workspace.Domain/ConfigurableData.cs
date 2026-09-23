@@ -81,6 +81,8 @@ public sealed class StageDefinition
     public string Name { get; set; } = "";
     public int Position { get; set; }
     public long Version { get; set; } = 1;
+    public StageRequirement EntryRequirement { get; set; }
+    public string AllowedFromStageIdsJson { get; set; } = "[]";
 }
 public sealed class WorkspaceSettings
 {

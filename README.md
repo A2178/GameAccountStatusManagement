@@ -2,7 +2,7 @@
 
 版本：1.0　｜　基準日期：2026-09-09　｜　文件語言：繁體中文
 
-本 repository 包含 M0／M1 的環境、暱稱入口及區域協調，以及 M2 的可配置名稱、帶值標籤、帳密表、自由表格與視圖。工作區名稱可在設定頁修改。
+本 repository 包含 M0／M1 的環境、暱稱入口及區域協調、M2 可配置資料與視圖、M3 多人協作，以及 M4 養成流程、04:00 資格、活動、功勳兌換與累積所得。工作區名稱可在設定頁修改。
 
 ## 開發需求
 
@@ -11,6 +11,7 @@
 | .NET SDK | 10.x；`global.json` 的基準為 10.0.100 |
 | Node.js | 20.x，搭配 npm |
 | Docker | Docker Compose，用於本機 PostgreSQL 17 |
+| PostgreSQL client | 執行 M4 瀏覽器驗收時需讓 `psql` 位於 PATH，用於隔離測試庫的日期情境 |
 | PowerShell | Windows 使用 `.ps1` 腳本時需要 |
 
 所有設定均為本機開發用途，不得將正式資料庫連線字串或真實帳密放入 repository。
@@ -60,7 +61,7 @@ npx --prefix src/Workspace.Client playwright install chromium
 npm run e2e --prefix src/Workspace.Client
 ```
 
-M3 的在線／編輯位置提示、M4 的資格／金幣及後續 Windows 桌面程式尚未實作。M2 階段分頁是同一批卡片的篩選視圖；移到「正式活動」不代表已有入場資格。Web 精簡面板視圖不等於 WPF 桌面程式。
+M4 的資格／金幣及後續 Windows 桌面程式尚未實作。M2 階段分頁是同一批卡片的篩選視圖；移到「正式活動」不代表已有入場資格。Web 精簡面板視圖不等於 WPF 桌面程式。
 
 ## M2 操作與驗收
 
@@ -101,7 +102,59 @@ dotnet run --project tools/Workspace.Contracts
 
 具體測試、範圍與升級證據見 [M2 驗證紀錄](docs/M2_VALIDATION.md)。
 
-若要單獨重建開發資料庫，可先刪除開發 volume，再重新啟動：
+## M3 多人協作與 Codespaces 預覽
+
+開兩個瀏覽器工作階段，查看頁首的在線名單、代表色與短碼。同一工作階段開多分頁只計一人；同名的獨立工作階段仍分開。點卡片或表格儲存格時，其他人可看到查看／編輯提示；共用欄位的編輯提示會出現在所有相關資料列。
+
+草稿留在自己的頁面，保存後才同步。兩人改同一儲存格時會顯示最新值並保留草稿；斷線時保存停用，重連完成版本核對後恢復。心跳逾時只清除在線提示，不清除預約、占用或主要操作者。
+
+右上「更改暱稱」保留目前身分及多分頁關聯。精確 `Admin` 仍適用既有隱身及日誌規則，改回普通暱稱後既有分頁與舊 Cookie 也失去日誌權限。預設心跳 10 秒、清除逾時 30 秒、資料校對 15 秒；設定與自動驗證見 [M3 驗證紀錄](docs/M3_VALIDATION.md)。
+
+從 Codespaces 的 M2 預覽升級：停止原網站程序，保留工作目錄修改後，在 repository 根目錄執行：
+
+```bash
+git fetch origin
+git switch codex/m3-live-collaboration
+git pull --ff-only
+bash scripts/bootstrap.sh
+docker compose up -d --wait
+dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+dotnet publish src/Workspace.Web -c Release -o artifacts/codespaces-m3
+cd artifacts/codespaces-m3
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:5080 dotnet Workspace.Web.dll
+```
+
+PR 合併後可改用 `main`。保留 5080 為 Private，重新整理預覽頁；任一命令失敗就停止後續步驟。M3 沒有新的 schema migration，不需清空資料庫；既有 M2 欄位、值、卡片與占用會保留。重啟後在線名單由心跳重新建立。
+
+## M4 養成、活動與 Codespaces 預覽
+
+在「養成與活動」分頁先開啟「職業與流程設定」，輸入實際職業的目標等級、任務道具及功勳門檻，再替卡片回報最後確認的養成進度。系統沒有預設遊戲門檻，不會從舊標籤猜測已達標。內建任務／功勳／正式活動階段分別檢查等級、任務及資格，來源階段與條件可調整。
+
+達標後等待工作區嚴格下一個 04:00；時區初始為 `Asia/Taipei`，可在設定核對。每輪保存當時門檻及時區，重複保存或後來改設定都不重算舊輪次。入場、分流與實際時間一次回報；後端以伺服器時間驗證資格。頁面會透過既有定期校對更新可投入狀態，不需重新登入。
+
+記錄所得採增量，功勳兌換由使用者回報已完成的正整數數量，1:1 扣功勳並加累積金幣；兌換至 0 不撤銷已啟用資格。回應不明時頁面保留原請求，重新整理後使用「使用原請求確認結果」，避免重複加幣。更正累積值需版本與原因。重刷保留養成成果及金幣；永久失格無法靠補功勳恢復。封存前要先明確結束活動及解除野外占用，接替卡片的所得與資格獨立。
+
+M4 分支承接 M3；M3 尚未合併也能切換到 M4 預覽。PR 先以 M3 分支為基底，審閱／合併順序為 M3 → M4，M3 合併後再將 M4 PR 的基底改成 `main` 並確認 checks。
+
+停止原預覽程序，保留工作目錄修改與資料庫備份後，在 repository 根目錄執行：
+
+```bash
+git fetch origin
+git switch codex/m4-progression-and-activities
+git pull --ff-only
+bash scripts/bootstrap.sh
+docker compose up -d --wait
+dotnet ef database update --project src/Workspace.Infrastructure --startup-project src/Workspace.Web
+dotnet publish src/Workspace.Web -c Release -o artifacts/codespaces-m4
+cd artifacts/codespaces-m4
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://0.0.0.0:5080 dotnet Workspace.Web.dll
+```
+
+保留 5080 為 Private；任一命令失敗就停止後續步驟。新增 migration `20260919150349_ProgressionAndActivities`，保留既有帳號、卡片、欄位、占用與 migration ID。舊卡片的 M4 進度由使用者確認後建立。降版會刪除 M4 資格、活動、所得與去重紀錄，不是無損回退；見 [M4 驗證與資料影響](docs/M4_VALIDATION.md)。
+
+## 重建開發資料庫（會清空資料）
+
+這不是升級步驟。只有確定要清空隔離的開發資料時，才刪除開發 volume 並重新啟動：
 
 ```bash
 docker compose down -v
